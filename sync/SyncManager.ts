@@ -251,6 +251,9 @@ export class SyncManager {
 		const conflicts = decisions.filter(
 			(d) => d.action === SyncAction.CONFLICT,
 		);
+		const doNothings = decisions.filter(
+			(d) => d.action === SyncAction.DO_NOTHING,
+		);
 
 		// Execute downloads first
 		for (const decision of downloads) {
@@ -276,6 +279,26 @@ export class SyncManager {
 				`S3 Sync: Resolving conflict for ${decision.filePath}`,
 			);
 			await this.handleConflict(decision, stateFiles);
+		}
+
+		// Update state for DO_NOTHING files that are now in sync (e.g. matching mtimes)
+		for (const decision of doNothings) {
+			if (
+				decision.localStatus !== "UNCHANGED" ||
+				decision.remoteStatus !== "UNCHANGED"
+			) {
+				const localFiles = await this.getLocalFilesMap();
+				const remoteFiles = await this.getRemoteFilesMap();
+				const localFile = localFiles.get(decision.filePath);
+				const remoteFile = remoteFiles.get(decision.filePath);
+
+				if (localFile && remoteFile && localFile.mtime === remoteFile.mtime) {
+					stateFiles.set(decision.filePath, {
+						localMtime: localFile.mtime,
+						remoteMtime: remoteFile.mtime,
+					});
+				}
+			}
 		}
 	}
 
@@ -366,18 +389,16 @@ export class SyncManager {
 			if (localFile && !(localFile instanceof TFolder)) {
 				await this.app.vault.delete(localFile);
 			}
-			// Update state map: file deleted locally, clear localMtime
-			const currentState = stateFiles.get(decision.filePath) || {};
+			// Update state map: file deleted locally AND it was already gone from remote
 			stateFiles.set(decision.filePath, {
 				localMtime: undefined,
-				remoteMtime: currentState.remoteMtime,
+				remoteMtime: undefined,
 			});
 		} else if (decision.action === SyncAction.DELETE_REMOTE) {
 			await this.s3Service.deleteRemoteFile(decision.filePath);
-			// Update state map: file deleted remotely, clear remoteMtime
-			const currentState = stateFiles.get(decision.filePath) || {};
+			// Update state map: file deleted remotely AND it was already gone from local
 			stateFiles.set(decision.filePath, {
-				localMtime: currentState.localMtime,
+				localMtime: undefined,
 				remoteMtime: undefined,
 			});
 		}
@@ -487,20 +508,10 @@ export class SyncManager {
 		const newState: SyncState = {};
 		
 		for (const [filePath, fileState] of stateFiles.entries()) {
-			// For robustness: Remove entries where only one timestamp is defined 
-			// (incomplete state that can cause race conditions). This will result in 
-			// a download/upload on the next sync, which is safer than keeping inconsistent state.
-			const hasLocal = fileState.localMtime !== undefined;
-			const hasRemote = fileState.remoteMtime !== undefined;
-			
-			// Only include entries that have both timestamps or neither (complete states)
-			if ((hasLocal && hasRemote) || (!hasLocal && !hasRemote)) {
-				// Skip entries with neither timestamp (obsolete)
-				if (hasLocal || hasRemote) {
-					newState[filePath] = fileState;
-				}
+			// Include entries that have at least one timestamp
+			if (fileState.localMtime !== undefined || fileState.remoteMtime !== undefined) {
+				newState[filePath] = fileState;
 			}
-			// Incomplete entries (only localMtime or only remoteMtime) are filtered out
 		}
 
 		// Save the updated state
