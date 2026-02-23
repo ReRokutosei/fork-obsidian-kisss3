@@ -327,7 +327,7 @@ describe('SyncDecisionEngine', () => {
       });
     });
 
-    test('Both modified with same mtime - conflict resolution', () => {
+    test('Both modified with same mtime - should do nothing (already in sync)', () => {
       const localFiles = new Map<string, LocalFile>([
         ['test.md', { path: 'test.md', mtime: 2500 }]
       ]);
@@ -345,7 +345,7 @@ describe('SyncDecisionEngine', () => {
         filePath: 'test.md',
         localStatus: FileStatus.MODIFIED,
         remoteStatus: FileStatus.MODIFIED,
-        action: SyncAction.CONFLICT
+        action: SyncAction.DO_NOTHING
       });
     });
   });

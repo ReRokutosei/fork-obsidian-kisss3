@@ -279,6 +279,7 @@ export class SyncDecisionEngine {
 				return SyncAction.DOWNLOAD;
 			}
 			// If timestamps are exactly equal, no action needed
+			return SyncAction.DO_NOTHING;
 		}
 
 		// If we can't determine, flag as conflict for manual resolution

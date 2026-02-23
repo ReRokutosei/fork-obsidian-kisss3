@@ -251,6 +251,9 @@ export class SyncManager {
 		const conflicts = decisions.filter(
 			(d) => d.action === SyncAction.CONFLICT,
 		);
+		const doNothings = decisions.filter(
+			(d) => d.action === SyncAction.DO_NOTHING,
+		);
 
 		// Execute downloads first
 		for (const decision of downloads) {
@@ -276,6 +279,26 @@ export class SyncManager {
 				`S3 Sync: Resolving conflict for ${decision.filePath}`,
 			);
 			await this.handleConflict(decision, stateFiles);
+		}
+
+		// Update state for DO_NOTHING files that are now in sync (e.g. matching mtimes)
+		for (const decision of doNothings) {
+			if (
+				decision.localStatus !== "UNCHANGED" ||
+				decision.remoteStatus !== "UNCHANGED"
+			) {
+				const localFiles = await this.getLocalFilesMap();
+				const remoteFiles = await this.getRemoteFilesMap();
+				const localFile = localFiles.get(decision.filePath);
+				const remoteFile = remoteFiles.get(decision.filePath);
+
+				if (localFile && remoteFile && localFile.mtime === remoteFile.mtime) {
+					stateFiles.set(decision.filePath, {
+						localMtime: localFile.mtime,
+						remoteMtime: remoteFile.mtime,
+					});
+				}
+			}
 		}
 	}
 
