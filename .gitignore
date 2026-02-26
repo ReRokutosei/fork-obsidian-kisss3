@@ -24,3 +24,4 @@ data.json
 # Test coverage
 coverage/
 docs/CloudFlare R2 Docs/
+*codex*/*

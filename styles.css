@@ -1,8 +1,136 @@
-/*
+.kisss3-sync-preview {
+	max-height: 70vh;
+	overflow: auto;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.kisss3-sync-preview h2 {
+	margin: 0 0 10px 0;
+	font-size: 1.1em;
+}
 
-If your plugin does not need CSS, delete this file.
+.kisss3-sync-preview-empty {
+	color: var(--text-muted);
+}
 
-*/
+.kisss3-sync-preview-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.kisss3-sync-preview-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	border-radius: 999px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.kisss3-sync-preview-badge.is-total {
+	color: var(--text-normal);
+}
+
+.kisss3-sync-preview-badge.is-upload {
+	color: var(--color-green);
+}
+
+.kisss3-sync-preview-badge.is-download {
+	color: var(--color-blue);
+}
+
+.kisss3-sync-preview-badge.is-delete_local,
+.kisss3-sync-preview-badge.is-delete_remote {
+	color: var(--color-red);
+}
+
+.kisss3-sync-preview-badge.is-conflict {
+	color: var(--color-orange);
+}
+
+.kisss3-sync-preview-group {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-primary-alt);
+	margin-bottom: 10px;
+	overflow: hidden;
+}
+
+.kisss3-sync-preview-group-summary {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.kisss3-sync-preview-group-summary:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kisss3-sync-preview-group-label {
+	width: 18px;
+	height: 18px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 700;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.kisss3-sync-preview-group-count {
+	margin-left: auto;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.kisss3-sync-preview-group.is-upload .kisss3-sync-preview-group-label {
+	color: var(--color-green);
+}
+
+.kisss3-sync-preview-group.is-download .kisss3-sync-preview-group-label {
+	color: var(--color-blue);
+}
+
+.kisss3-sync-preview-group.is-delete_local .kisss3-sync-preview-group-label,
+.kisss3-sync-preview-group.is-delete_remote .kisss3-sync-preview-group-label {
+	color: var(--color-red);
+}
+
+.kisss3-sync-preview-group.is-conflict .kisss3-sync-preview-group-label {
+	color: var(--color-orange);
+}
+
+.kisss3-sync-preview-list {
+	list-style: none;
+	padding: 0 10px 8px 10px;
+	margin: 0;
+}
+
+.kisss3-sync-preview-list-item {
+	padding: 4px 6px;
+	border-radius: 4px;
+}
+
+.kisss3-sync-preview-list-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.kisss3-sync-preview-list-item code {
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.kisss3-sync-preview-truncated {
+	padding: 0 10px 10px 10px;
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 12px;
+}
