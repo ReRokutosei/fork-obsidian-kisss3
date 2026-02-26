@@ -10,6 +10,7 @@ import { IgnoreMatcher } from "./IgnoreMatcher";
 import {
 	SyncAction,
 	FileSyncDecision,
+	SyncPreviewFileContent,
 	LocalFilesMap,
 	RemoteFilesMap,
 	StateFilesMap,
@@ -65,6 +66,34 @@ export class SyncManager {
 			remoteFiles,
 			stateFiles,
 		);
+	}
+
+	async getFileContentForPreview(filePath: string): Promise<SyncPreviewFileContent> {
+		if (!this.s3Service.isConfigured()) {
+			throw new Error("Plugin not configured. Please check settings.");
+		}
+
+		let localText: string | null = null;
+		const localFile = this.app.vault.getAbstractFileByPath(filePath);
+		if (localFile instanceof TFile) {
+			localText = await this.app.vault.read(localFile);
+		}
+
+		let remoteText: string | null = null;
+		const remoteObjects = await this.s3Service.listRemoteFiles();
+		const remoteObject = remoteObjects.get(filePath);
+		if (remoteObject) {
+			const remoteBuffer = await this.s3Service.downloadFile(remoteObject);
+			remoteText = new TextDecoder("utf-8").decode(
+				new Uint8Array(remoteBuffer),
+			);
+		}
+
+		return {
+			filePath,
+			localText,
+			remoteText,
+		};
 	}
 
 	async runSync(): Promise<void> {

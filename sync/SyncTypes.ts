@@ -45,6 +45,12 @@ export interface FileSyncDecision {
 	conflictType?: string; // Description of conflict type for logging
 }
 
+export interface SyncPreviewFileContent {
+	filePath: string;
+	localText: string | null;
+	remoteText: string | null;
+}
+
 // Map types for the three sources
 export type LocalFilesMap = Map<string, LocalFile>;
 export type RemoteFilesMap = Map<string, RemoteFile>;

@@ -73,6 +73,8 @@ export default class S3SyncPlugin extends Plugin {
 	private openSyncPreview() {
 		new SyncPreviewModal(this.app, {
 			loadPreview: () => this.syncManager.getSyncPreview(),
+			loadFileContent: (filePath) =>
+				this.syncManager.getFileContentForPreview(filePath),
 			runSync: () => this.runSyncNow(),
 		}).open();
 	}
