@@ -45,6 +45,24 @@ export class SyncManager {
 		this.s3Service.updateSettings(settings);
 	}
 
+	async getSyncPreview(): Promise<FileSyncDecision[]> {
+		if (!this.s3Service.isConfigured()) {
+			throw new Error("Plugin not configured. Please check settings.");
+		}
+
+		const [localFiles, remoteFiles, stateFiles] = await Promise.all([
+			this.generateLocalFilesMap(),
+			this.generateRemoteFilesMap(),
+			this.generateStateFilesMap(),
+		]);
+
+		return this.decisionEngine.generateSyncDecisions(
+			localFiles,
+			remoteFiles,
+			stateFiles,
+		);
+	}
+
 	async runSync(): Promise<void> {
 		if (this.running) {
 			new Notice("S3 Sync: A sync is already in progress.");

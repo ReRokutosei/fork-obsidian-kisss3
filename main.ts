@@ -1,10 +1,11 @@
 // Import necessary modules from Obsidian
-import { Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 
 // Import local modules
 import { S3SyncSettings, DEFAULT_SETTINGS } from "./settings";
 import { SyncManager } from "./sync/SyncManager";
 import { S3SyncSettingTab } from "./ui/S3SyncSettingTab";
+import { SyncPreviewModal } from "./ui/SyncPreviewModal";
 
 
 
@@ -23,6 +24,23 @@ export default class S3SyncPlugin extends Plugin {
 			name: "Sync now",
 			callback: () => {
 				this.syncManager.runSync();
+			},
+		});
+
+		this.addCommand({
+			id: "s3-sync-preview",
+			name: "Preview sync status",
+			callback: async () => {
+				try {
+					const decisions = await this.syncManager.getSyncPreview();
+					new SyncPreviewModal(this.app, decisions).open();
+				} catch (error) {
+					const message =
+						error instanceof Error
+							? error.message
+							: "Unable to preview sync status.";
+					new Notice(`S3 Sync: ${message}`);
+				}
 			},
 		});
 
