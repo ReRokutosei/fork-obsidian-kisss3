@@ -12,6 +12,14 @@ export interface S3SyncSettings {
 	// lastSyncTimestamp removed - now using sync-state.json file
 }
 
+export function normalizeRemotePrefix(prefix: string): string {
+	const trimmed = prefix.trim();
+	if (!trimmed || trimmed === "/") {
+		return "";
+	}
+	return trimmed.replace(/^\/+|\/+$/g, "");
+}
+
 // --- Default Settings ---
 export const DEFAULT_SETTINGS: S3SyncSettings = {
 	endpoint: "",

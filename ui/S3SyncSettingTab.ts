@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import S3SyncPlugin from "../main";
+import { normalizeRemotePrefix } from "../settings";
 
 export class S3SyncSettingTab extends PluginSettingTab {
 	plugin: S3SyncPlugin;
@@ -90,9 +91,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 					.setPlaceholder("my-vault")
 					.setValue(this.plugin.settings.remotePrefix)
 					.onChange(async (value) => {
-						this.plugin.settings.remotePrefix = normalizePath(
-							value.trim(),
-						);
+						this.plugin.settings.remotePrefix = normalizeRemotePrefix(value);
 						await this.plugin.saveSettings();
 					}),
 			);

@@ -52,22 +52,28 @@ export class S3Service {
 		return this.client !== null;
 	}
 
+	private getNormalizedPrefix(): string {
+		const trimmed = this.settings.remotePrefix.trim();
+		if (!trimmed || trimmed === "/") {
+			return "";
+		}
+		return trimmed.replace(/^\/+|\/+$/g, "");
+	}
+
 	private getRemoteKey(localPath: string): string {
-		const prefix = this.settings.remotePrefix.trim();
-		// Ensure prefix, if it exists, ends with a slash.
-		if (prefix && !prefix.endsWith("/")) {
+		const prefix = this.getNormalizedPrefix();
+		if (prefix) {
 			return `${prefix}/${localPath}`;
 		}
-		return `${prefix}${localPath}`;
+		return localPath;
 	}
 
 	private getLocalPath(remoteKey: string): string {
-		const prefix = this.settings.remotePrefix.trim();
-		// Remove prefix to get the relative path matching the vault structure.
-		if (prefix && !prefix.endsWith("/")) {
+		const prefix = this.getNormalizedPrefix();
+		if (prefix) {
 			return remoteKey.substring(prefix.length + 1);
 		}
-		return remoteKey.substring(prefix.length);
+		return remoteKey;
 	}
 
 	async listRemoteFiles(): Promise<Map<string, S3Object>> {
@@ -78,13 +84,13 @@ export class S3Service {
 		let isTruncated = true;
 		if (this.plugin.settings.enableDebugLogging) {
 			console.log(
-				`listRemoteFiles(), bucket: ${this.settings.bucketName}, prefix: ${this.settings.remotePrefix}`,
+				`listRemoteFiles(), bucket: ${this.settings.bucketName}, prefix: ${this.getNormalizedPrefix()}`,
 			);
 		}
 		while (isTruncated) {
 			const command = new ListObjectsV2Command({
 				Bucket: this.settings.bucketName,
-				Prefix: this.settings.remotePrefix.trim(),
+				Prefix: this.getNormalizedPrefix(),
 				ContinuationToken: continuationToken,
 			});
 

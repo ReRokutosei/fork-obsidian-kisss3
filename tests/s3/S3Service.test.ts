@@ -135,7 +135,7 @@ describe('S3Service', () => {
       service.listRemoteFiles();
       
       const listCall = mockListObjectsV2Command.mock.calls[0][0];
-      expect(listCall.Prefix).toBe('vault/');
+      expect(listCall.Prefix).toBe('vault');
     });
   });
 

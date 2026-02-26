@@ -2,10 +2,16 @@
 import { Notice, Plugin, TFile } from "obsidian";
 
 // Import local modules
-import { S3SyncSettings, DEFAULT_SETTINGS } from "./settings";
+import {
+	S3SyncSettings,
+	DEFAULT_SETTINGS,
+	normalizeRemotePrefix,
+} from "./settings";
 import { SyncManager } from "./sync/SyncManager";
 import { S3SyncSettingTab } from "./ui/S3SyncSettingTab";
 import { SyncPreviewModal } from "./ui/SyncPreviewModal";
+
+const BUILD_MARKER = "prefix-normalization-2026-02-26";
 
 
 
@@ -14,6 +20,10 @@ export default class S3SyncPlugin extends Plugin {
 	private syncManager: SyncManager;
 	private syncIntervalId: number | null = null;
 	async onload() {
+		console.info(
+			`[kisss3] onload build=${BUILD_MARKER} version=${this.manifest.version}`,
+		);
+
 		await this.loadSettings();
 		this.syncManager = new SyncManager(this.app, this);
 
@@ -71,6 +81,9 @@ export default class S3SyncPlugin extends Plugin {
 			{},
 			DEFAULT_SETTINGS,
 			await this.loadData(),
+		);
+		this.settings.remotePrefix = normalizeRemotePrefix(
+			this.settings.remotePrefix ?? "",
 		);
 	}
 
