@@ -5,9 +5,13 @@ import {
 	SyncPreviewFileContent,
 } from "../sync/SyncTypes";
 
-const MAX_ITEMS_PER_SECTION = 120;
-const MAX_RENDER_DIFF_ROWS = 800;
+const MAX_ITEMS_INITIAL = 80;
+const ITEMS_PAGE_SIZE = 80;
 const MAX_LCS_CELLS = 2_000_000;
+const MAX_DIFF_ROWS = 20_000;
+const DIFF_ROW_HEIGHT = 22;
+const DIFF_VIEWPORT_ROWS = 120;
+const DIFF_OVERSCAN = 40;
 
 type SyncPreviewModalOptions = {
 	loadPreview: () => Promise<FileSyncDecision[]>;
@@ -38,6 +42,24 @@ type DiffOp = {
 	text: string;
 };
 
+type DiffStats = {
+	added: number;
+	removed: number;
+	modified: number;
+};
+
+type DiffResult = {
+	rows: DiffRow[];
+	stats: DiffStats;
+	truncated: boolean;
+};
+
+type DiffCacheEntry = {
+	localText: string | null;
+	remoteText: string | null;
+	result: DiffResult;
+};
+
 export class SyncPreviewModal extends Modal {
 	private decisions: FileSyncDecision[] = [];
 	private loading = false;
@@ -48,7 +70,9 @@ export class SyncPreviewModal extends Modal {
 	private contentLoading = false;
 	private contentError: string | null = null;
 	private contentCache = new Map<string, SyncPreviewFileContent>();
+	private diffCache = new Map<string, DiffCacheEntry>();
 	private selectedContent: SyncPreviewFileContent | null = null;
+	private groupVisibleCount = new Map<SyncAction, number>();
 
 	constructor(app: App, private options: SyncPreviewModalOptions) {
 		super(app);
@@ -110,6 +134,7 @@ export class SyncPreviewModal extends Modal {
 		}
 
 		const groups = this.buildDecisionGroups(actionable);
+		this.ensureGroupVisibleCounts(groups);
 
 		const legendEl = contentEl.createDiv({ cls: "kisss3-sync-preview-legend" });
 		legendEl.createEl("span", {
@@ -140,7 +165,6 @@ export class SyncPreviewModal extends Modal {
 
 		for (const group of groups) {
 			if (group.items.length === 0) continue;
-
 			group.items.sort((a, b) => a.filePath.localeCompare(b.filePath));
 
 			const sectionEl = contentEl.createEl("details", {
@@ -155,9 +179,7 @@ export class SyncPreviewModal extends Modal {
 				cls: "kisss3-sync-preview-group-label",
 				text: group.shortLabel,
 			});
-			sectionSummary.createEl("span", {
-				text: `${group.title}`,
-			});
+			sectionSummary.createEl("span", { text: `${group.title}` });
 			sectionSummary.createEl("span", {
 				cls: "kisss3-sync-preview-group-direction",
 				text: group.direction,
@@ -167,10 +189,11 @@ export class SyncPreviewModal extends Modal {
 				text: `${group.items.length}`,
 			});
 
-			const ul = sectionEl.createEl("ul", {
-				cls: "kisss3-sync-preview-list",
-			});
-			for (const item of group.items.slice(0, MAX_ITEMS_PER_SECTION)) {
+			const visibleCount = this.groupVisibleCount.get(group.action) ?? MAX_ITEMS_INITIAL;
+			const visibleItems = group.items.slice(0, visibleCount);
+
+			const ul = sectionEl.createEl("ul", { cls: "kisss3-sync-preview-list" });
+			for (const item of visibleItems) {
 				const li = ul.createEl("li", { cls: "kisss3-sync-preview-list-item" });
 				const button = li.createEl("button", {
 					cls: "kisss3-sync-preview-list-button",
@@ -184,11 +207,18 @@ export class SyncPreviewModal extends Modal {
 				});
 			}
 
-			if (group.items.length > MAX_ITEMS_PER_SECTION) {
-				sectionEl.createEl("p", {
-					cls: "kisss3-sync-preview-truncated",
-					text: `...and ${group.items.length - MAX_ITEMS_PER_SECTION} more`,
-				});
+			if (visibleCount < group.items.length) {
+				const remaining = group.items.length - visibleCount;
+				const moreEl = sectionEl.createDiv({ cls: "kisss3-sync-preview-more" });
+				new ButtonComponent(moreEl)
+					.setButtonText(`Show more (${remaining})`)
+					.onClick(() => {
+						this.groupVisibleCount.set(
+							group.action,
+							Math.min(group.items.length, visibleCount + ITEMS_PAGE_SIZE),
+						);
+						this.render();
+					});
 			}
 		}
 
@@ -202,9 +232,13 @@ export class SyncPreviewModal extends Modal {
 
 		if (this.selectedDecision) {
 			const meta = panelHeader.createDiv({ cls: "kisss3-diff-panel-meta" });
-			meta.setText(
-				`${this.getActionTitle(this.selectedDecision.action)} | ${this.selectedDecision.filePath}`,
-			);
+			meta.setText(this.selectedDecision.filePath);
+
+			const direction = panel.createDiv({ cls: "kisss3-diff-direction" });
+			direction.createEl("span", {
+				cls: "kisss3-diff-direction-label",
+				text: this.getActionTitle(this.selectedDecision.action),
+			});
 		}
 
 		if (!this.selectedDecision) {
@@ -231,7 +265,7 @@ export class SyncPreviewModal extends Modal {
 			return;
 		}
 
-		if (!this.selectedContent) {
+		if (!this.selectedContent || !this.selectedFilePath) {
 			panel.createEl("p", {
 				cls: "kisss3-diff-empty",
 				text: "No diff content available.",
@@ -239,11 +273,12 @@ export class SyncPreviewModal extends Modal {
 			return;
 		}
 
-		const { rows, truncated } = this.buildDiffRows(
+		const diffResult = this.getDiffResult(
+			this.selectedFilePath,
 			this.selectedContent.localText,
 			this.selectedContent.remoteText,
 		);
-		if (rows.length === 0) {
+		if (diffResult.rows.length === 0) {
 			panel.createEl("p", {
 				cls: "kisss3-diff-empty",
 				text: "No line differences detected.",
@@ -251,31 +286,148 @@ export class SyncPreviewModal extends Modal {
 			return;
 		}
 
-		const columns = panel.createDiv({ cls: "kisss3-diff-columns" });
-		columns.createDiv({ cls: "kisss3-diff-column-title" }).setText("Local");
-		columns.createDiv({ cls: "kisss3-diff-column-title" }).setText("Remote");
+		const statBar = panel.createDiv({ cls: "kisss3-diff-stats" });
+		statBar.createEl("span", {
+			cls: "kisss3-diff-stat is-add",
+			text: `+${diffResult.stats.added}`,
+		});
+		statBar.createEl("span", {
+			cls: "kisss3-diff-stat is-remove",
+			text: `-${diffResult.stats.removed}`,
+		});
+		statBar.createEl("span", {
+			cls: "kisss3-diff-stat is-modify",
+			text: `~${diffResult.stats.modified}`,
+		});
 
-		const grid = panel.createDiv({ cls: "kisss3-diff-grid" });
-		for (const row of rows) {
-			const rowEl = grid.createDiv({
-				cls: `kisss3-diff-row is-${row.type}`,
-			});
-			rowEl.createDiv({ cls: "kisss3-diff-ln" }).setText(
-				row.leftNo ? `${row.leftNo}` : "",
-			);
-			rowEl.createDiv({ cls: "kisss3-diff-text" }).setText(row.leftText);
-			rowEl.createDiv({ cls: "kisss3-diff-ln" }).setText(
-				row.rightNo ? `${row.rightNo}` : "",
-			);
-			rowEl.createDiv({ cls: "kisss3-diff-text" }).setText(row.rightText);
-		}
+		const split = panel.createDiv({ cls: "kisss3-diff-split" });
+		const leftPane = split.createDiv({ cls: "kisss3-diff-pane" });
+		const rightPane = split.createDiv({ cls: "kisss3-diff-pane" });
 
-		if (truncated) {
+		leftPane.createDiv({ cls: "kisss3-diff-pane-title", text: "Local" });
+		rightPane.createDiv({ cls: "kisss3-diff-pane-title", text: "Remote" });
+
+		const leftScroll = leftPane.createDiv({ cls: "kisss3-diff-pane-scroll" });
+		const rightScroll = rightPane.createDiv({ cls: "kisss3-diff-pane-scroll" });
+
+		const leftSpacer = leftScroll.createDiv({ cls: "kisss3-diff-pane-spacer" });
+		const rightSpacer = rightScroll.createDiv({ cls: "kisss3-diff-pane-spacer" });
+		const leftRowsLayer = leftScroll.createDiv({ cls: "kisss3-diff-pane-rows" });
+		const rightRowsLayer = rightScroll.createDiv({ cls: "kisss3-diff-pane-rows" });
+
+		const totalRows = diffResult.rows.length;
+		const spacerHeight = totalRows * DIFF_ROW_HEIGHT;
+		leftSpacer.style.height = `${spacerHeight}px`;
+		rightSpacer.style.height = `${spacerHeight}px`;
+
+		const renderWindow = (scrollTop: number) => {
+			const start = Math.max(
+				0,
+				Math.floor(scrollTop / DIFF_ROW_HEIGHT) - DIFF_OVERSCAN,
+			);
+			const end = Math.min(
+				totalRows,
+				start + DIFF_VIEWPORT_ROWS + DIFF_OVERSCAN * 2,
+			);
+			const offsetTop = start * DIFF_ROW_HEIGHT;
+
+			leftRowsLayer.empty();
+			rightRowsLayer.empty();
+			leftRowsLayer.style.transform = `translateY(${offsetTop}px)`;
+			rightRowsLayer.style.transform = `translateY(${offsetTop}px)`;
+
+			for (let i = start; i < end; i++) {
+				const row = diffResult.rows[i];
+				leftRowsLayer.appendChild(this.createPaneRow(true, row));
+				rightRowsLayer.appendChild(this.createPaneRow(false, row));
+			}
+		};
+
+		let syncingScroll = false;
+		const syncFromLeft = () => {
+			if (syncingScroll) return;
+			syncingScroll = true;
+			rightScroll.scrollTop = leftScroll.scrollTop;
+			syncingScroll = false;
+			renderWindow(leftScroll.scrollTop);
+		};
+		const syncFromRight = () => {
+			if (syncingScroll) return;
+			syncingScroll = true;
+			leftScroll.scrollTop = rightScroll.scrollTop;
+			syncingScroll = false;
+			renderWindow(rightScroll.scrollTop);
+		};
+
+		leftScroll.addEventListener("scroll", syncFromLeft);
+		rightScroll.addEventListener("scroll", syncFromRight);
+		renderWindow(0);
+
+		if (diffResult.truncated) {
 			panel.createEl("p", {
 				cls: "kisss3-sync-preview-truncated",
-				text: `Only first ${MAX_RENDER_DIFF_ROWS} diff rows are shown.`,
+				text: `Diff exceeds ${MAX_DIFF_ROWS} rows. Showing a truncated result for performance.`,
 			});
 		}
+	}
+
+	private createPaneRow(isLeft: boolean, row: DiffRow): HTMLDivElement {
+		const rowEl = createDiv({
+			cls: `kisss3-diff-pane-row is-${row.type}`,
+		});
+		const lineNo = isLeft ? row.leftNo : row.rightNo;
+		const text = isLeft ? row.leftText : row.rightText;
+
+		rowEl.style.height = `${DIFF_ROW_HEIGHT}px`;
+		rowEl.createDiv({ cls: "kisss3-diff-ln", text: lineNo ? `${lineNo}` : "" });
+		rowEl.createDiv({ cls: "kisss3-diff-text", text });
+		return rowEl;
+	}
+
+	private ensureGroupVisibleCounts(groups: DecisionGroup[]): void {
+		for (const group of groups) {
+			const current = this.groupVisibleCount.get(group.action);
+			if (current === undefined) {
+				this.groupVisibleCount.set(group.action, MAX_ITEMS_INITIAL);
+			}
+
+			if (
+				this.selectedFilePath &&
+				group.items.some((item) => item.filePath === this.selectedFilePath)
+			) {
+				const index = group.items.findIndex(
+					(item) => item.filePath === this.selectedFilePath,
+				);
+				const needed = index + 1;
+				const visible = this.groupVisibleCount.get(group.action) ?? MAX_ITEMS_INITIAL;
+				if (needed > visible) {
+					this.groupVisibleCount.set(group.action, needed);
+				}
+			}
+		}
+	}
+
+	private getDiffResult(
+		filePath: string,
+		localText: string | null,
+		remoteText: string | null,
+	): DiffResult {
+		const cached = this.diffCache.get(filePath);
+		if (
+			cached &&
+			cached.localText === localText &&
+			cached.remoteText === remoteText
+		) {
+			return cached.result;
+		}
+
+		const result = this.buildDiffRows(localText, remoteText);
+		this.diffCache.set(filePath, {
+			localText,
+			remoteText,
+			result,
+		});
+		return result;
 	}
 
 	private buildDecisionGroups(actionable: FileSyncDecision[]): DecisionGroup[] {
@@ -376,10 +528,9 @@ export class SyncPreviewModal extends Modal {
 	private buildDiffRows(
 		localText: string | null,
 		remoteText: string | null,
-	): { rows: DiffRow[]; truncated: boolean } {
+	): DiffResult {
 		const localLines = localText === null ? null : this.toLines(localText);
 		const remoteLines = remoteText === null ? null : this.toLines(remoteText);
-
 		let rows: DiffRow[] = [];
 
 		if (localLines === null && remoteLines === null) {
@@ -404,11 +555,27 @@ export class SyncPreviewModal extends Modal {
 			rows = this.buildRowsFromTwoSides(localLines ?? [], remoteLines ?? []);
 		}
 
-		const truncated = rows.length > MAX_RENDER_DIFF_ROWS;
+		let truncated = false;
+		if (rows.length > MAX_DIFF_ROWS) {
+			rows = rows.slice(0, MAX_DIFF_ROWS);
+			truncated = true;
+		}
+
 		return {
-			rows: truncated ? rows.slice(0, MAX_RENDER_DIFF_ROWS) : rows,
+			rows,
+			stats: this.computeDiffStats(rows),
 			truncated,
 		};
+	}
+
+	private computeDiffStats(rows: DiffRow[]): DiffStats {
+		const stats: DiffStats = { added: 0, removed: 0, modified: 0 };
+		for (const row of rows) {
+			if (row.type === "add") stats.added++;
+			else if (row.type === "remove") stats.removed++;
+			else if (row.type === "modify") stats.modified++;
+		}
+		return stats;
 	}
 
 	private toLines(text: string): string[] {
