@@ -11,6 +11,7 @@ export class MockPlugin {
     syncIntervalMinutes: 15,
     enableAutomaticSync: false,
     enableDebugLogging: false,
+    ignorePatterns: '',
   };
 
   private pluginData: any = {};

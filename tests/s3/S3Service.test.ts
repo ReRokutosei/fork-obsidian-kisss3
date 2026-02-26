@@ -54,6 +54,7 @@ describe('S3Service', () => {
       syncIntervalMinutes: 15,
       enableAutomaticSync: false,
       enableDebugLogging: false,
+      ignorePatterns: '',
     };
     s3Service = new S3Service(settings, mockPlugin as any);
     

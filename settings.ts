@@ -9,6 +9,7 @@ export interface S3SyncSettings {
 	syncIntervalMinutes: number;
 	enableAutomaticSync: boolean;
 	enableDebugLogging: boolean;
+	ignorePatterns: string;
 	// lastSyncTimestamp removed - now using sync-state.json file
 }
 
@@ -31,4 +32,5 @@ export const DEFAULT_SETTINGS: S3SyncSettings = {
 	syncIntervalMinutes: 15,
 	enableAutomaticSync: false,
 	enableDebugLogging: false,
+	ignorePatterns: "",
 };

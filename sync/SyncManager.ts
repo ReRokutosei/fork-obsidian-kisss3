@@ -6,6 +6,7 @@ import { S3SyncSettings } from "../settings";
 import { _Object as S3Object } from "@aws-sdk/client-s3";
 import { SyncStateManager } from "./SyncStateManager";
 import { SyncDecisionEngine } from "./SyncDecisionEngine";
+import { IgnoreMatcher } from "./IgnoreMatcher";
 import {
 	SyncAction,
 	FileSyncDecision,
@@ -25,6 +26,7 @@ export class SyncManager {
 	private s3Service: S3Service;
 	private stateManager: SyncStateManager;
 	private decisionEngine: SyncDecisionEngine;
+	private ignoreMatcher: IgnoreMatcher;
 	private running = false;
 
 	// Cache for file maps during sync operation
@@ -39,10 +41,12 @@ export class SyncManager {
 		this.s3Service = new S3Service(this.plugin.settings, this.plugin);
 		this.stateManager = new SyncStateManager(this.app, this.plugin);
 		this.decisionEngine = new SyncDecisionEngine(this.plugin);
+		this.ignoreMatcher = new IgnoreMatcher(this.plugin.settings.ignorePatterns);
 	}
 
 	updateSettings(settings: S3SyncSettings) {
 		this.s3Service.updateSettings(settings);
+		this.ignoreMatcher = new IgnoreMatcher(settings.ignorePatterns);
 	}
 
 	async getSyncPreview(): Promise<FileSyncDecision[]> {
@@ -245,8 +249,13 @@ export class SyncManager {
 	 * Checks if a file should be ignored based on exclusion rules
 	 */
 	private shouldIgnoreFile(filePath: string): boolean {
-		// Ignore files/folders beginning with a dot
-		return filePath.split("/").some((part) => part.startsWith("."));
+		// Always ignore dotfiles/dotfolders.
+		if (filePath.split("/").some((part) => part.startsWith("."))) {
+			return true;
+		}
+
+		// Additional gitignore-like rules from settings.
+		return this.ignoreMatcher.ignores(filePath);
 	}
 
 	/**
@@ -582,6 +591,9 @@ export class SyncManager {
 	async handleLocalDelete(path: string): Promise<void> {
 		if (!this.s3Service.isConfigured()) {
 			return; // Silently skip if not configured
+		}
+		if (this.shouldIgnoreFile(path)) {
+			return;
 		}
 
 		try {

@@ -96,6 +96,27 @@ export class S3SyncSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl).setHeading().setName("Ignore rules");
+
+		new Setting(containerEl)
+			.setName("Ignore patterns")
+			.setDesc(
+				"Gitignore-like patterns, one per line. Example: _remotely-save-metadata-on-remote.json or .obsidian/**",
+			)
+			.addTextArea((text) => {
+				text
+					.setPlaceholder(
+						"# One pattern per line\n_remotely-save-metadata-on-remote.json\n.obsidian/**",
+					)
+					.setValue(this.plugin.settings.ignorePatterns)
+					.onChange(async (value) => {
+						this.plugin.settings.ignorePatterns = value;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 6;
+				text.inputEl.cols = 40;
+			});
+
 		new Setting(containerEl).setHeading().setName("Automatic sync");
 
 		new Setting(containerEl)
