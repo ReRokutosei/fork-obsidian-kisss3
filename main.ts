@@ -13,12 +13,13 @@ import { SyncPreviewModal } from "./ui/SyncPreviewModal";
 
 const BUILD_MARKER = "prefix-normalization-2026-02-26";
 
-
-
 export default class S3SyncPlugin extends Plugin {
 	settings: S3SyncSettings;
 	private syncManager: SyncManager;
 	private syncIntervalId: number | null = null;
+	private syncRibbonEl: HTMLElement | null = null;
+	private syncInProgress = false;
+
 	async onload() {
 		console.info(
 			`[kisss3] onload build=${BUILD_MARKER} version=${this.manifest.version}`,
@@ -32,8 +33,8 @@ export default class S3SyncPlugin extends Plugin {
 		this.addCommand({
 			id: "s3-sync-now",
 			name: "Sync now",
-			callback: () => {
-				this.syncManager.runSync();
+			callback: async () => {
+				await this.runSyncNow();
 			},
 		});
 
@@ -41,18 +42,18 @@ export default class S3SyncPlugin extends Plugin {
 			id: "s3-sync-preview",
 			name: "Preview sync status",
 			callback: async () => {
-				try {
-					const decisions = await this.syncManager.getSyncPreview();
-					new SyncPreviewModal(this.app, decisions).open();
-				} catch (error) {
-					const message =
-						error instanceof Error
-							? error.message
-							: "Unable to preview sync status.";
-					new Notice(`S3 Sync: ${message}`);
-				}
+				this.openSyncPreview();
 			},
 		});
+
+		this.addRibbonIcon("list", "S3 Sync: Preview", () => {
+			this.openSyncPreview();
+		});
+
+		this.syncRibbonEl = this.addRibbonIcon("refresh-cw", "S3 Sync: Sync now", () => {
+			this.runSyncNow();
+		});
+		this.updateSyncRibbonState();
 
 		// Register delete event handler for real-time sync
 		this.registerEvent(
@@ -68,6 +69,42 @@ export default class S3SyncPlugin extends Plugin {
 
 		this.updateSyncInterval();
 		this.syncManager; // Run initial sync automatically when plugin loads
+	}
+
+	private openSyncPreview() {
+		new SyncPreviewModal(this.app, {
+			loadPreview: () => this.syncManager.getSyncPreview(),
+			runSync: () => this.runSyncNow(),
+		}).open();
+	}
+
+	private async runSyncNow(): Promise<void> {
+		if (this.syncInProgress) {
+			new Notice("S3 Sync: A sync is already in progress.");
+			return;
+		}
+
+		this.syncInProgress = true;
+		this.updateSyncRibbonState();
+		try {
+			await this.syncManager.runSync();
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: "Unable to run sync right now.";
+			new Notice(`S3 Sync: ${message}`);
+		} finally {
+			this.syncInProgress = false;
+			this.updateSyncRibbonState();
+		}
+	}
+
+	private updateSyncRibbonState() {
+		if (!this.syncRibbonEl) return;
+		this.syncRibbonEl.toggleClass("mod-spin", this.syncInProgress);
+		this.syncRibbonEl.toggleClass("is-disabled", this.syncInProgress);
+		this.syncRibbonEl.ariaDisabled = this.syncInProgress ? "true" : "false";
 	}
 
 	onunload() {

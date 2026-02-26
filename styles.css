@@ -4,12 +4,66 @@
 }
 
 .kisss3-sync-preview h2 {
-	margin: 0 0 10px 0;
+	margin: 0;
 	font-size: 1.1em;
+}
+
+.kisss3-sync-preview-header {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	align-items: center;
+	gap: 8px 12px;
+	margin-bottom: 10px;
+}
+
+.kisss3-sync-preview-title-meta {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.kisss3-sync-preview-actions {
+	display: flex;
+	gap: 8px;
 }
 
 .kisss3-sync-preview-empty {
 	color: var(--text-muted);
+}
+
+.kisss3-sync-preview-error {
+	border: 1px solid var(--background-modifier-error);
+	background: color-mix(in srgb, var(--background-primary), var(--text-error) 6%);
+	color: var(--text-error);
+	padding: 10px;
+	border-radius: 8px;
+}
+
+.kisss3-sync-preview-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.kisss3-sync-preview-legend-title {
+	color: var(--text-muted);
+	font-size: 12px;
+	padding: 2px 4px 2px 0;
+}
+
+.kisss3-sync-preview-legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 999px;
+	font-size: 12px;
+	background: var(--background-secondary);
+}
+
+.kisss3-sync-preview-legend-item code {
+	font-size: 11px;
 }
 
 .kisss3-sync-preview-summary {
@@ -91,6 +145,11 @@
 	font-size: 12px;
 }
 
+.kisss3-sync-preview-group-direction {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
 .kisss3-sync-preview-group.is-upload .kisss3-sync-preview-group-label {
 	color: var(--color-green);
 }
@@ -105,6 +164,23 @@
 }
 
 .kisss3-sync-preview-group.is-conflict .kisss3-sync-preview-group-label {
+	color: var(--color-orange);
+}
+
+.kisss3-sync-preview-legend-item.is-upload {
+	color: var(--color-green);
+}
+
+.kisss3-sync-preview-legend-item.is-download {
+	color: var(--color-blue);
+}
+
+.kisss3-sync-preview-legend-item.is-delete_local,
+.kisss3-sync-preview-legend-item.is-delete_remote {
+	color: var(--color-red);
+}
+
+.kisss3-sync-preview-legend-item.is-conflict {
 	color: var(--color-orange);
 }
 
@@ -133,4 +209,9 @@
 	margin: 0;
 	color: var(--text-muted);
 	font-size: 12px;
+}
+
+.workspace-ribbon .clickable-icon.is-disabled {
+	opacity: 0.55;
+	pointer-events: none;
 }

@@ -13,10 +13,16 @@ export class S3SyncSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		containerEl.createEl("h2", { text: "S3 sync settings" });
+		containerEl.createEl("p", {
+			text: "Configure connection, sync behavior, and ignore rules.",
+		});
+
+		new Setting(containerEl).setHeading().setName("Connection");
 
 		new Setting(containerEl)
 			.setName("S3 Endpoint")
-			.setDesc("The endpoint URL of your S3-compatible storage.")
+			.setDesc("S3-compatible endpoint, for example Cloudflare R2 endpoint.")
 			.addText((text) =>
 				text
 					.setPlaceholder("https://s3.amazonaws.com")
@@ -29,9 +35,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("S3 Region")
-			.setDesc(
-				'The region of your S3 bucket (e.g., "us-east-1", "auto").',
-			)
+			.setDesc('Bucket region. For Cloudflare R2, use "auto".')
 			.addText((text) =>
 				text
 					.setPlaceholder("us-east-1")
@@ -44,7 +48,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Bucket Name")
-			.setDesc("The name of the S3 bucket.")
+			.setDesc("Target bucket name.")
 			.addText((text) =>
 				text
 					.setPlaceholder("my-obsidian-vault")
@@ -57,7 +61,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Access Key ID")
-			.setDesc("Your S3 access key.")
+			.setDesc("Access key ID for the bucket credentials.")
 			.addText((text) =>
 				text
 					.setPlaceholder("AKIA...")
@@ -70,7 +74,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Secret Access Key")
-			.setDesc("Your S3 secret key.")
+			.setDesc("Secret key for the bucket credentials.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Your secret key")
@@ -84,7 +88,7 @@ export class S3SyncSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Remote prefix (folder)")
 			.setDesc(
-				"Optional folder path in the bucket to sync to (e.g., `obsidian/`). Slashes are optional.",
+				"Optional subfolder in bucket. Leave empty to sync at bucket root.",
 			)
 			.addText((text) =>
 				text
