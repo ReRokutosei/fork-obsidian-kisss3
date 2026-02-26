@@ -11,6 +11,9 @@ import {
 } from "./SyncTypes";
 
 import S3SyncPlugin from "../main";
+
+const MTIME_TOLERANCE_MS = 2_000;
+const EPOCH_MTIME_THRESHOLD = 100_000_000_000;
 /**
  * Engine for making sync decisions based on three-source comparison
  */
@@ -135,7 +138,7 @@ export class SyncDecisionEngine {
 
 		if (this.plugin.settings.enableDebugLogging) {
 			console.log(
-				`determineFileStatus: file: ${file?.path}, stateTime: ${stateTime}, isLocal: ${isLocal}`,
+				`determineFileStatus: file: ${file?.path}, fileMtime: ${file?.mtime}, stateTime: ${stateTime}, isLocal: ${isLocal}`,
 			);
 		}
 		// if !file, then the file did not exist in the respective
@@ -153,8 +156,13 @@ export class SyncDecisionEngine {
 		}
 
 		if (file && stateTime) {
-			// Compare exact timestamps - no tolerance needed since we control both values
-			if (file.mtime > stateTime) {
+			const useTolerance =
+				file.mtime > EPOCH_MTIME_THRESHOLD &&
+				stateTime > EPOCH_MTIME_THRESHOLD;
+			const tolerance = useTolerance ? MTIME_TOLERANCE_MS : 0;
+
+			// S3 providers can return slightly different mtime precision across APIs.
+			if (file.mtime > stateTime + tolerance) {
 				return FileStatus.MODIFIED; // File was modified since state
 			}
 			return FileStatus.UNCHANGED; // File hasn't changed since state

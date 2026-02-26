@@ -156,6 +156,32 @@ describe('SyncDecisionEngine', () => {
         action: SyncAction.DO_NOTHING
       });
     });
+
+    test('Remote mtime drift within tolerance - should do nothing', () => {
+      const localMtime = 1_772_121_086_839;
+      const stateRemoteMtime = 1_772_121_102_000;
+      const driftedRemoteMtime = 1_772_121_102_001;
+
+      const localFiles = new Map<string, LocalFile>([
+        ['test.md', { path: 'test.md', mtime: localMtime }]
+      ]);
+      const remoteFiles = new Map<string, RemoteFile>([
+        ['test.md', { path: 'test.md', mtime: driftedRemoteMtime, key: 'test.md' }]
+      ]);
+      const stateFiles = new Map<string, SyncFileState>([
+        ['test.md', { localMtime: localMtime, remoteMtime: stateRemoteMtime }]
+      ]);
+
+      const decisions = engine.generateSyncDecisions(localFiles, remoteFiles, stateFiles);
+
+      expect(decisions).toHaveLength(1);
+      expect(decisions[0]).toMatchObject({
+        filePath: 'test.md',
+        localStatus: FileStatus.UNCHANGED,
+        remoteStatus: FileStatus.UNCHANGED,
+        action: SyncAction.DO_NOTHING
+      });
+    });
   });
 
   describe('Conflict resolution: Modification vs Deletion', () => {
