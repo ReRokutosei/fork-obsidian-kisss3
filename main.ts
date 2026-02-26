@@ -10,8 +10,7 @@ import {
 import { SyncManager } from "./sync/SyncManager";
 import { S3SyncSettingTab } from "./ui/S3SyncSettingTab";
 import { SyncPreviewModal } from "./ui/SyncPreviewModal";
-
-const BUILD_MARKER = "prefix-normalization-2026-02-26";
+import { BUILD_MARKER, BUILD_NUMBER, BUILD_TIMESTAMP } from "./build-meta";
 
 export default class S3SyncPlugin extends Plugin {
 	settings: S3SyncSettings;
@@ -22,7 +21,7 @@ export default class S3SyncPlugin extends Plugin {
 
 	async onload() {
 		console.info(
-			`[kisss3] onload build=${BUILD_MARKER} version=${this.manifest.version}`,
+			`[kisss3] onload build=${BUILD_MARKER} (#${BUILD_NUMBER}) timestamp=${BUILD_TIMESTAMP} version=${this.manifest.version}`,
 		);
 
 		await this.loadSettings();
